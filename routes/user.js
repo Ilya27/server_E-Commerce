@@ -11,7 +11,6 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 let token='';
 router.post('/register', function(req, res) {
-    console.log(req);
     User.findOne({
         email: req.body.email,
     }).then(user => {
@@ -55,10 +54,8 @@ router.post('/login', (req, res) => {
     if(!isValid) {
         return res.status(400).json(errors);
     }
-
     const email = req.body.email;
     const password = req.body.password;
-
     User.findOne({email})
         .then(user => {
             if(!user) {
@@ -69,7 +66,7 @@ router.post('/login', (req, res) => {
                     .then(isMatch => {
                         if(isMatch) {
                             const payload = {
-                                id: user.id,
+                                _id: user.id,
                                 firstName: user.firstName,
                                 email: user.email,
                                 lastName:user.lastName,
@@ -99,87 +96,121 @@ router.post('/login', (req, res) => {
 });
 
 router.put("/update", function(req, res){
-    console.log(req.body.infoAbout);
-    
-    const { errors,isValid} = validateUpdateInput(req.body);
-    if(!isValid) {
-        return res.status(400).json(errors);
-    }
     User.findById({
-        _id: req.body._id,
+        _id:req.body._id,
     },function(err, user){
         if(err) return console.log(err);
-        if(req.body.infoAbout){
-            user.infoAbout=req.body.infoAbout;
-        }
-        User.findOne({name:req.body.name 
-        },function(err, user_find){
-            if(user_find){
-                if(user_find._id==req.body._id){
-                    user
-                    .save()
-                    .then(user=>{
-                        res.json(user);})
-                }else{
-                    errors.login = 'Login already exists';
-                    return res.status(400).json(errors);
-                }
-            }else{
-                user.name=req.body.name;
-                if(req.body.password_old===''){
-                    user
-                    .save()
-                    .then(user=>{
-                            res.json(user);
-                        })}else{
-                            bcrypt.compare(req.body.password_old,user.password)
-                            .then(isMatch => 
-                                {if(isMatch){
-                                    if(req.body.password_new===req.body.password_confirm){
-                                        bcrypt.genSalt(10, (err, salt) => {
-                                            if(err) console.error('There was an error', err);
-                                            else {
-                                                bcrypt.hash(req.body.password_new, salt, (err, hash) => {
-                                                    if(err) console.error('There was an error', err);
-                                                    else {
-                                                        user.password = hash;
-                                                        user
-                                                        .save()
-                                                        .then(user=>{
-                                                                res.json(user);
-                                                            })
-                                                    }
-                                                });
-                                            }
-                                        });
-                                    }
-                            }else{
-                                    errors.password_old = 'Incorrect Password';
-                                    return res.status(400).json(errors);
-                            }})
-                        }
-                    }
-                })
+        if(user.firstName===req.body.firstName && user.lastName===req.body.lastName && user.gender===req.body.gender && user. dateofbirth===req.body.dateofbirth){
+            res.json({user,
+                update:false,
+            }); 
+        }else{
+            user.firstName=req.body.firstName;
+            user.lastName=req.body.lastName;
+            user.gender=req.body.gender;
+            user. dateofbirth=req.body.dateofbirth;
+            user
+            .save()
+            .then(
+                user=>{
+                res.json({user,
+                    update:true,
+                });
             })
-        })
+        }
+    })
+})
+
+router.put("/changePassword", function(req, res){
+    const password = req.body.oldPassword;
+    User.findById({
+        _id:req.body._id,
+    },function(err, user){
+            bcrypt.compare(password, user.password)
+            .then(isMatch => {
+                if(isMatch) {
+                    bcrypt.genSalt(10, (err, salt) => {
+                        if(password===req.body.newPassword)  
+                            return res.status(400).json({newPassword: 'Новый пароль не отличается от старого пароля'
+                        });
+                        else {
+                            bcrypt.hash(req.body.newPassword, salt, (err, hash) => {
+                                if(err) console.error('There was an error', err);
+                                else {
+                                    user.password = hash;
+                                    user
+                                    .save()
+                                    .then(user => {
+                                        res.json({user,status:true})
+                                    });
+                                    console.log(user);
+                                }
+                            }
+                        );
+                    }
+                }
+            );
+        }else{
+            return res.status(400).json({
+                    oldPassword: 'Неправильный пароль'
+                });
+        }
+    })
+})
+    // User.findById({
+    //     _id:req.body._id,
+    // },function(err, user){
+    //     bcrypt.compare(password, user.password)
+    //     .then(isMatch => {
+    //         if(isMatch) {
+    //             const payload = {
+    //                 _id: user.id,
+    //                 firstName: user.firstName,
+    //                 email: user.email,
+    //                 lastName:user.lastName,
+    //                 gender:user.gender,
+    //                 dateofbirth:user.dateofbirth,
+    //             }
+    //             jwt.sign(payload, 'secret', {
+    //                 expiresIn: 3600
+    //             }, (err, token) => {
+    //                 token=token;
+    //                 if(err) console.error('There is some error in token', err);
+    //                 else {
+    //                     res.json({
+    //                         success: true,
+    //                         token: `Bearer ${token}`,
+    //                         payload:payload,
+    //                     });
+    //                 }
+    //             });
+    //         }
+    //         else {
+    //             errors.password = 'Incorrect Password';
+    //             return res.status(400).json(errors);
+    //         }
+    //     });
+    // })
+})
 
 
 router.get("/getUserInfo", function(req, res){
-    User.find({
-        _id: req.query._id,
+    User.findOne({
+        _id: req.query.userId,
     }, function(err, user){
         if(err) return console.log(err);
+        console.log(user);
         res.send(user);
         
     });
 });
 
 router.get('/me', passport.authenticate('jwt', { session: false }), (req, res) => {
+    console.log(req);
     return res.json({
         id: req.user.id,
         name: req.user.name,
         email: req.user.email,
-        infoAbout:req.user.infoAbout,
     });
 });
 
